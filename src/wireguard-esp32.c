@@ -1,18 +1,17 @@
 #include "wireguard-platform.h"
 
 #include <stdlib.h>
+
 #include "crypto.h"
 #include "lwip/sys.h"
+
+#include "esp_system.h"
 
 // This file contains a sample Wireguard platform integration
 
 // DO NOT USE THIS FUNCTION - IMPLEMENT A BETTER RANDOM BYTE GENERATOR IN YOUR IMPLEMENTATION
 void wireguard_random_bytes(void *bytes, size_t size) {
-	int x;
-	uint8_t *out = (uint8_t *)bytes;
-	for (x=0; x < size; x++) {
-		out[x] = rand() % 0xFF;
-	}
+	esp_fill_random(bytes, size);
 }
 
 uint32_t wireguard_sys_now() {

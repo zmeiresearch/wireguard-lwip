@@ -55,7 +55,7 @@ static void update_peer_addr(struct wireguard_peer *peer, const ip_addr_t *addr,
 	peer->port = port;
 }
 
-static struct wireguard_peer *peer_lookup_by_allowed_ip(struct wireguard_device *device, const ip4_addr_t *ipaddr) {
+static struct wireguard_peer *peer_lookup_by_allowed_ip(struct wireguard_device *device, const ip_addr_t *ipaddr) {
 	struct wireguard_peer *result = NULL;
 	struct wireguard_peer *tmp;
 	int x;
@@ -64,7 +64,7 @@ static struct wireguard_peer *peer_lookup_by_allowed_ip(struct wireguard_device 
 		tmp = &device->peers[x];
 		if (tmp->valid) {
 			for (y=0; y < WIREGUARD_MAX_SRC_IPS; y++) {
-				if ((tmp->allowed_source_ips[y].valid) && ip_addr_netcmp(ipaddr, &tmp->allowed_source_ips[y].ip, &tmp->allowed_source_ips[y].mask)) {
+				if ((tmp->allowed_source_ips[y].valid) && ip_addr_netcmp(ipaddr, &tmp->allowed_source_ips[y].ip, ip_2_ip4(&tmp->allowed_source_ips[y].mask))) {
 					result = tmp;
 					break;
 				}
@@ -85,7 +85,7 @@ static err_t wireguardif_peer_output(struct netif *netif, struct pbuf *q, struct
 	return udp_sendto(device->udp_pcb, q, &peer->ip, peer->port);
 }
 
-static err_t wireguardif_device_output(struct wireguard_device *device, struct pbuf *q, const ip4_addr_t *ipaddr, u16_t port) {
+static err_t wireguardif_device_output(struct wireguard_device *device, struct pbuf *q, const ip_addr_t *ipaddr, u16_t port) {
 	return udp_sendto(device->udp_pcb, q, ipaddr, port);
 }
 
@@ -187,7 +187,7 @@ static err_t wireguardif_output_to_peer(struct netif *netif, struct pbuf *q, con
 
 // This is used as the output function for the Wireguard netif
 // The ipaddr here is the one inside the VPN which we use to lookup the correct peer/endpoint
-static err_t wireguardif_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr) {
+static err_t wireguardif_output(struct netif *netif, struct pbuf *q, const ip_addr_t *ipaddr) {
 	struct wireguard_device *device = (struct wireguard_device *)netif->state;
 	// Send to peer that matches dest IP
 	struct wireguard_peer *peer = peer_lookup_by_allowed_ip(device, ipaddr);
@@ -314,7 +314,7 @@ static void wireguardif_process_data_message(struct wireguard_device *device, st
 								ip_addr_copy_from_ip4(dest, iphdr->dest);
 								for (x=0; x < WIREGUARD_MAX_SRC_IPS; x++) {
 									if (peer->allowed_source_ips[x].valid) {
-										if (ip_addr_netcmp(&dest, &peer->allowed_source_ips[x].ip, &peer->allowed_source_ips[x].mask)) {
+										if (ip_addr_netcmp(&dest, &peer->allowed_source_ips[x].ip, ip_2_ip4(&peer->allowed_source_ips[x].mask))) {
 											dest_ok = true;
 											header_len = PP_NTOHS(IPH_LEN(iphdr));
 											break;
@@ -421,20 +421,20 @@ static size_t get_source_addr_port(const ip_addr_t *addr, u16_t port, uint8_t *b
 
 #if LWIP_IPV4
 	if (IP_IS_V4(addr) && (buflen >= 4)) {
-		U32TO8_BIG(buf + result, PP_NTOHL(ip4_addr_get_u32(addr)));
+		U32TO8_BIG(buf + result, PP_NTOHL(ip4_addr_get_u32(ip_2_ip4(addr))));
 		result += 4;
 	}
 #endif
 #if LWIP_IPV6
 	if (IP_IS_V4(addr) && (buflen >= 16)) {
-		U16TO8_BIG(buf + result + 0, IP6_ADDR_BLOCK1(addr));
-		U16TO8_BIG(buf + result + 2, IP6_ADDR_BLOCK2(addr));
-		U16TO8_BIG(buf + result + 4, IP6_ADDR_BLOCK3(addr));
-		U16TO8_BIG(buf + result + 6, IP6_ADDR_BLOCK4(addr));
-		U16TO8_BIG(buf + result + 8, IP6_ADDR_BLOCK5(addr));
-		U16TO8_BIG(buf + result + 10, IP6_ADDR_BLOCK6(addr));
-		U16TO8_BIG(buf + result + 12, IP6_ADDR_BLOCK7(addr));
-		U16TO8_BIG(buf + result + 14, IP6_ADDR_BLOCK8(addr));
+		U16TO8_BIG(buf + result + 0, IP6_ADDR_BLOCK1(ip_2_ip6(addr)));
+		U16TO8_BIG(buf + result + 2, IP6_ADDR_BLOCK2(ip_2_ip6(addr)));
+		U16TO8_BIG(buf + result + 4, IP6_ADDR_BLOCK3(ip_2_ip6(addr)));
+		U16TO8_BIG(buf + result + 6, IP6_ADDR_BLOCK4(ip_2_ip6(addr)));
+		U16TO8_BIG(buf + result + 8, IP6_ADDR_BLOCK5(ip_2_ip6(addr)));
+		U16TO8_BIG(buf + result + 10, IP6_ADDR_BLOCK6(ip_2_ip6(addr)));
+		U16TO8_BIG(buf + result + 12, IP6_ADDR_BLOCK7(ip_2_ip6(addr)));
+		U16TO8_BIG(buf + result + 14, IP6_ADDR_BLOCK8(ip_2_ip6(addr)));
 		result += 16;
 	}
 #endif
@@ -912,7 +912,8 @@ err_t wireguardif_init(struct netif *netif) {
 					if (device) {
 						device->netif = netif;
 						if (init_data->bind_netif) {
-							udp_bind_netif(udp, init_data->bind_netif);
+							// IVA: TODO
+							//udp_bind_netif(udp, init_data->bind_netif);
 						}
 						device->udp_pcb = udp;
 						// Per-wireguard netif/device setup
@@ -972,11 +973,11 @@ void wireguardif_peer_init(struct wireguardif_peer *peer) {
 	memset(peer, 0, sizeof(struct wireguardif_peer));
 	// Caller must provide 'public_key'
 	peer->public_key = NULL;
-	ip4_addr_set_any(&peer->endpoint_ip);
+	ip4_addr_set_any(ip_2_ip4(&peer->endpoint_ip));
 	peer->endport_port = WIREGUARDIF_DEFAULT_PORT;
 	peer->keep_alive = WIREGUARDIF_KEEPALIVE_DEFAULT;
-	ip4_addr_set_any(&peer->allowed_ip);
-	ip4_addr_set_any(&peer->allowed_mask);
+	ip4_addr_set_any(ip_2_ip4(&peer->allowed_ip));
+	ip4_addr_set_any(ip_2_ip4(&peer->allowed_mask));
 	memset(peer->greatest_timestamp, 0, sizeof(peer->greatest_timestamp));
 	peer->preshared_key = NULL;
 }
