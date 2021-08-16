@@ -1,4 +1,4 @@
-#
+# WireGuard Implementation for ESP32
 
 This is a port of [smartalock/wireguard-lwip](https://github.com/smartalock/wireguard-lwip) WireGuard&reg; implementation to the PlatformiIO/ESP32 stack. It can be used directly in a [PlatformIO](https://platformio.org/) project by including the following in `platformio.ini` file in your project
 
