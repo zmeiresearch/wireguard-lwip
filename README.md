@@ -1,3 +1,18 @@
+#
+
+This is a port of [smartalock/wireguard-lwip](https://github.com/smartalock/wireguard-lwip) WireGuard&reg; implementation to the PlatformiIO/ESP32 stack. It can be used directly in a [PlatformIO](https://platformio.org/) project by including the following in `platformio.ini` file in your project
+
+```
+# library dependencies
+lib_deps =
+    https://github.com/zmeiresearch/wireguard-lwip
+```
+
+An example of how to use the library is available in `example` folder, make sure to update your configuration in `wireguard_vpn.h` before testing!
+
+
+Original README follows:
+
 # WireGuard Implementation for lwIP
 
 This project is a C implementation of the [WireGuard&reg;](https://www.wireguard.com/) protocol intended to be used with the [lwIP IP stack](https://www.nongnu.org/lwip/)
